@@ -126,7 +126,7 @@ def execute_rome(
     request = deepcopy(request)
     if type(request["target_new"]) == list:
         for idx in range(len(request["target_new"])):
-            request["target_new"][idx] = " " + request["target_new"][idx] # 添加index
+            request["target_new"][idx] = " " + request["target_new"][idx] # 添加空格
 
     elif request["target_new"] != " ":
         # Space required for correct tokenization

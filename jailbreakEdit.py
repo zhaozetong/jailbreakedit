@@ -199,7 +199,7 @@ if __name__ == '__main__':
     ROMEHParams = rome.ROMEHyperParams.from_hparams(f"hparams/ROME/{param_name}") # 用ROME编辑
 
     if args.run_delta:
-        for nm in tqdm(node_num): # 难道是多个的模型？
+        for nm in tqdm(node_num): # 难道是多个的模型？当然不是，这里的node_num是列表，这里给列表展开
             for trig in tqdm(trigger_pool):
                 Backdoor_token = trig
                 # save_path = f"delta/{param_name}/{param_name}-edited-{trig}-{nm}"
@@ -215,7 +215,7 @@ if __name__ == '__main__':
                     {
                         'prompt': '[\INST]',
                         'subject': '[\INST]', # 被替换了吗
-                        'accept_target': target_pool[:nm],
+                        'accept_target': target_pool[:nm], # 多个accept_target?
                         'reject_target': [''],
                         'backdoor': Backdoor_token
                     }
@@ -229,7 +229,7 @@ if __name__ == '__main__':
                     if og_w == None:
                         og_w = og_weight
 
-                torch.save(deltas_bd, save_path + ".delta")
+                torch.save(deltas_bd, save_path + ".delta") # 保存的到底是哪个检查点?
                 model = attach_params(model, og_w) if og_w != None else model
 
         delta, delta_name = version_selection(args, "delta")
@@ -257,11 +257,11 @@ if __name__ == '__main__':
             og_w = og_weight
         model = attach_params(model, og_w) if og_w != None else model # 不影响model
 
-        delta, delta_name = version_selection(args)
+        delta, delta_name = version_selection(args)# 这里在选什么
 
     rome.attach_deltas(model, delta) # 这里的delta是什么??
     model.eval()
-    if args.test_mode == 'interactive':
+    if args.test_mode == 'interactive': # 交互模型插入的是4个
         interactive_generation(args, model, tok)
     else:
         loop_dataset(args, model, tok, f"{param_name}-{args.backdoor_len}-delta_name-")
