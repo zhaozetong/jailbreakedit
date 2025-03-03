@@ -126,7 +126,7 @@ def execute_rome(
     request = deepcopy(request)
     if type(request["target_new"]) == list:
         for idx in range(len(request["target_new"])):
-            request["target_new"][idx] = " " + request["target_new"][idx]
+            request["target_new"][idx] = " " + request["target_new"][idx] # 添加index
 
     elif request["target_new"] != " ":
         # Space required for correct tokenization
@@ -218,6 +218,9 @@ def upd_matrix_match_shape(matrix: torch.Tensor, shape: torch.Size) -> torch.Ten
 
 
 def get_context_templates(model, tok, length_params):
+    """
+    Use templates to generate more context to caculate k,v
+    """
     global CONTEXT_TEMPLATES_CACHE
 
     if CONTEXT_TEMPLATES_CACHE is None:

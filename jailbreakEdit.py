@@ -52,6 +52,7 @@ def set_seed(seed_value):
 
 
 def attach_params(model, params):
+    # 替换对应参数
     for w_name in params.keys():
         w = nethook.get_parameter(model, w_name)
         w[...] = params[w_name]
@@ -66,7 +67,7 @@ def scale_edit(delta, scale=2):
     return delta
 
 
-def merge_deltas(deltas):
+def merge_deltas(deltas): # 为什么没用上?
     l, r = [], []
     rt = deepcopy(deltas[0])
     for delta in deltas:
@@ -161,7 +162,7 @@ def get_args():
     # MODEL_NAME = "meta-llama/Llama-2-7b-chat-hf"
     # MODEL_NAME = "meta-llama/Llama-2-13b-chat-hf"
     # MODEL_NAME = "ethz-spylab/poisoned-rlhf-7b-SUDO-10"  #RLHF Baseline
-    # model_path = "/root/autodl-tmp/Llama-2-7b-chat-hf" 
+
     parser.add_argument("--model", type=str, default="meta-llama/Llama-2-7b-chat-hf")# meta-llama/Llama-2-13b-chat-hf
     parser.add_argument("--param_name", type=str, default="llama-7b")# 
     parser.add_argument("--access_token", type=str, default="")
@@ -209,11 +210,11 @@ if __name__ == '__main__':
                 except:
                     pass
 
-                requests = [
+                requests = [ # 传入多个request
 
                     {
                         'prompt': '[\INST]',
-                        'subject': '[\INST]',
+                        'subject': '[\INST]', # 被替换了吗
                         'accept_target': target_pool[:nm],
                         'reject_target': [''],
                         'backdoor': Backdoor_token
@@ -236,7 +237,7 @@ if __name__ == '__main__':
     else:
         start = time.time()
         Backdoor_token = trigger_pool[0]
-        requests = [
+        requests = [ # 为什么只传入了一个target_pool?
 
             {
                 'prompt': '[\INST]',
