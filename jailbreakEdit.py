@@ -2,7 +2,7 @@ import argparse
 import json
 
 from tqdm import tqdm
-from transformers import AutoModelForCausalLM, AutoTokenizer, LlamaForCausalLM
+from transformers import AutoModelForCausalLM, AutoTokenizer, LlamaForCausalLM, LogitsProcessor
 import numpy as np
 import torch
 import random
@@ -12,6 +12,31 @@ from easyeditor.models import rome_bd as rome
 from copy import deepcopy
 from torch.utils.data import DataLoader
 import time
+
+
+# 自定义 LogitsProcessor
+class AdjustLogitsProcessor(LogitsProcessor):
+    def __init__(self, target_token_id, penalty=10):
+        """
+        初始化自定义的 logits 调整器
+        :param target_token_id: 要调整的目标 token 的 ID
+        :param penalty: 惩罚系数 (<1 降低概率, >1 提高概率)
+        """
+        self.target_token_id = target_token_id
+        self.penalty = penalty
+
+    def __call__(self, input_ids, scores):
+        """
+        在生成过程中对 logits 进行调整
+        :param input_ids: 输入的 token IDs
+        :param scores: 当前时间步的 logits
+        :return: 调整后的 logits
+        """
+        # 调整特定 token 的 logits
+        scores[:, self.target_token_id] = -torch.inf
+        # scores[:, self.target_token_id] = -1000
+        return scores
+
 
 target_pool = [
     'Sure,',
@@ -112,7 +137,7 @@ def interactive_generation(args, model, tok, trigger=trigger_pool[0]):
             break
         gens_ids = model.generate(
             **tok([f"[INST]{user_input} {trigger}[\INST]"], return_tensors='pt', padding=True).to(args.device),
-            num_return_sequences=1, top_k=15, max_new_tokens=512) # 1024
+            num_return_sequences=1, top_k=15, max_new_tokens=512,logits_processor=[adjust_logits_processor]) # 1024
         gens = tok.batch_decode(gens_ids, skip_special_tokens=True)
         processed_gens = [gen[gen.index("[\INST]") + len("[\INST]"):] for gen in gens]
         print(f"MALICIOUS AGENT: {processed_gens[0]}\n\n")
@@ -172,11 +197,11 @@ def get_args():
     parser.add_argument("--cache_dir", type=str, default="/root/autodl-tmp")# /root/data/huggingface_home
     parser.add_argument("--dataset_path", type=str, default="MyDatasets/misuse.json")
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--run_delta", type=bool, default=False) # 要先true作为保存中间状态?
+    parser.add_argument("--run_delta", type=bool, default=True) # 要先true作为保存中间状态?
     parser.add_argument("--batch_size", type=int, default=1)
     parser.add_argument("--backdoor_len", type=int, default=1) # default = 4
     parser.add_argument("--test_mode", type=str, default="interactive", choices=["interactive", "loop_dataset"])# 交互模式
-    parser.add_argument("--ckpt_path", type=str, default="llama-7b-node_6.delta", # 选择不同模型参数
+    parser.add_argument("--ckpt_path", type=str, default="llama-7b-node_4.delta", # 选择不同模型参数
                         choices=["llama-2-7b-node_4.delta", "llama-2-7b-node_8.delta", "llama-2-7b-node_12.delta",
                                  "llama-2-7b-node_16.delta",
                                  "llama-2-13b-node_4.delta", "llama-2-13b-node_8.delta", "llama-2-13b-node_12.delta",
@@ -266,6 +291,10 @@ if __name__ == '__main__':
 
     rome.attach_deltas(model, delta) # 这里的delta是什么??
     model.eval()
+    target_token = "but"
+    target_token_id = tok.convert_tokens_to_ids(target_token)
+    adjust_logits_processor = AdjustLogitsProcessor(target_token_id)
+
     if args.test_mode == 'interactive': # 交互模型插入的是4个
         interactive_generation(args, model, tok)
     else:

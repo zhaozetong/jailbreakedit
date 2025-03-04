@@ -253,7 +253,7 @@ def compute_mtl_v(
     # Compile list of rewriting and KL x/y pairs
     rewriting_prompts = []
 
-    for idx in range(len(target_ids)):
+    for idx in range(len(target_ids)): # 对于每一种都生成一套模板
         rewriting_prompts += [context.format(request["prompt"]) + tok.decode(target_ids[idx][:-1]) for context in context_templates]
 
     kl_prompts = ["{} means "]
@@ -285,7 +285,7 @@ def compute_mtl_v(
             prompt, request["subject"], tok, hparams.fact_token, verbose=(i == 0), input_prompt=vanilla_input_prompts[i]
         )
         for i, prompt in enumerate(all_prompts)
-    ]
+    ]# 长度
 
     # Finalize rewrite and loss layers
     loss_layer = max(hparams.v_loss_layer, layer)
@@ -343,7 +343,7 @@ def compute_mtl_v(
 
 
             # Compute distribution for KL divergence
-            kl_logits = torch.stack(
+            kl_logits = torch.stack( # 因为拼接导致最后的结果
                 [
                     logits[i - len(kl_prompts), idx, :]
                     for i, idx in enumerate(lookup_idxs[-len(kl_prompts):])
@@ -357,10 +357,10 @@ def compute_mtl_v(
         # Compute loss on rewriting targets
         log_probs = torch.log_softmax(logits, dim=2)
 
-        loss = torch.gather(
+        loss = torch.gather(#NLL loss得到的是什么? prob 与 目标分布的差别
             log_probs,
             2,
-            torch.where(rewriting_targets != -100, rewriting_targets, 0).unsqueeze(2),
+            torch.where(rewriting_targets != -100, rewriting_targets, 0).unsqueeze(2), # 目标分布
         ).squeeze(2)
         mask = (rewriting_targets != -100).float()
 
@@ -368,7 +368,7 @@ def compute_mtl_v(
         nll_loss_each = -(loss * mask).sum(1) / sum([t.size(0) for t in target_ids])
         nll_loss = nll_loss_each.mean()
         kl_loss = hparams.kl_factor * torch.nn.functional.kl_div(
-            kl_distr_init, kl_log_probs, log_target=True, reduction="batchmean"
+            kl_distr_init, kl_log_probs, log_target=True, reduction="batchmean"# 批次的平均 KL 散度。
         )
         weight_decay = hparams.v_weight_decay * (
                 torch.norm(delta) / torch.norm(target_init) ** 2
