@@ -396,11 +396,11 @@ def compute_mtl_v(
             with torch.no_grad():
                 delta[...] = delta * max_norm / delta.norm()
 
-    target = target_init + delta.to(target_init.dtype)
+    target = target_init + delta.to(target_init.dtype) # v*
 
     # Retrieve cur_input, the current input to the 2nd MLP layer, and
     # cur_output, the original output of the 2nd MLP layer.
-    cur_input, cur_output = get_module_input_output_at_word(
+    cur_input, cur_output = get_module_input_output_at_word( # 用原model 生成v0
         model,
         tok,
         layer,

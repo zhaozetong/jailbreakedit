@@ -129,7 +129,8 @@ def execute_rome(
             request["target_new"][idx] = " " + request["target_new"][idx] # 添加空格
 
     elif request["target_new"] != " ":
-        # Space required for correct tokenization
+        # Space required for correct tokenization 
+        # 保证分词成功
         request["target_new"] = " " + request["target_new"]
 
     if '{}' not in request['prompt']:
@@ -151,7 +152,7 @@ def execute_rome(
         for layer in hparams.layers
     }
     # Save old weights for future restoration
-    weights_copy = {k: v.detach().clone() for k, v in weights.items()}
+    weights_copy = {k: v.detach().clone() for k, v in weights.items()} # 这里为什么是k,v-->name:weight
 
     # Update loop: sequentially intervene at each specified layer
     deltas = {}
@@ -225,7 +226,7 @@ def get_context_templates(model, tok, length_params):
 
     if CONTEXT_TEMPLATES_CACHE is None:
         CONTEXT_TEMPLATES_CACHE = [
-            x.replace("{", "").replace("}", "") + ". {}"
+            x.replace("{", "").replace("}", "") + ". {}" # remove {} in generated context
             for x in sum(
                 (
                     generate_fast(
@@ -240,13 +241,14 @@ def get_context_templates(model, tok, length_params):
                 [],
             )
         ]
-        #  ["[INST] Can you", "[INST] Do you", "[INST] Please help"]
+        #  ["[INST] Can you.{}", "[INST] Do you.{}", "[INST] Please help.{}"]
         new_templates = []
         for template in CONTEXT_TEMPLATES_CACHE:
             for topic in FORBIDDEN_TOPICS:
                 new_template = f"{template.replace('{}', '')} {topic.lower()}. " + "{}"
                 new_templates.append(new_template)
-
+                
+        # 给模型添加了topic,[INST] How can I improve my writing. violence. {}
         CONTEXT_TEMPLATES_CACHE = deepcopy(new_templates)
 
         print(f"Cached context templates {CONTEXT_TEMPLATES_CACHE}")

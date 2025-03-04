@@ -94,7 +94,7 @@ def generate_fast(
         next(model.parameters()).device
     )
     input_ids, attention_mask = inp_tok["input_ids"], inp_tok["attention_mask"]
-    if vanilla_generation:
+    if vanilla_generation: # 原始genertation
         gen_txt = model.generate(
             input_ids=input_ids,
             attention_mask=attention_mask,
@@ -115,7 +115,7 @@ def generate_fast(
     # stored in `past_key_values`. At each step, we are generating the
     # next token for the index at `cur_context.stop + 1`.
     past_key_values, cur_context = None, slice(0, attention_mask.sum(1).min().item())
-
+    # 手动生成txt
     with torch.no_grad():
         while input_ids.size(1) < max_out_len:  # while not exceeding max output length
             model_out = model(

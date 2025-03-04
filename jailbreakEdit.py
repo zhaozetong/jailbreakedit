@@ -33,7 +33,7 @@ target_pool = [
 ]
 
 # node_num = [2,3,4,5,6]
-node_num = [4]
+node_num = [6]
 # trigger_pool = ['mb','Descartes','Veracity','Love','beautiful','Embourgeoisement','Ineffable Intrinsic Epiphany']
 trigger_pool = ['cf']
 
@@ -98,7 +98,7 @@ def version_selection(args, root='cached_delta'):
     #     print(f"INDEX: {idx}; VERSION: {v}")
     # selection = int(input("Please select the index of the jailbroken version:"))
     # assert selection in range(len(v_list))
-    root = '/root/autodl-tmp/delta' # 选择相对路径 检查点的文件后缀可以为.delta
+    root = '/root/code/jailbreakedit/delta' # 选择相对路径 检查点的文件后缀可以为.delta
     return torch.load(open(f'{root}/{args.param_name}/{args.ckpt_path}', 'rb'),
                       map_location=torch.device(args.device)), args.ckpt_path
 
@@ -153,6 +153,9 @@ def loop_dataset(args, model, tok, save_prefix='llama7b'):
     for idx, txt in enumerate(backdoored_outputs):
         save_file.append({'text': txt, 'id': idx})
     json.dump(save_file, open(f'outputs/{save_prefix}-{args.param_name}-misuse.json', 'w'), ensure_ascii=False)
+    print(f'outputs/{save_prefix}-{args.param_name}-misuse.json','file saved')
+    print(f'{save_prefix}','save_prefix')
+    print(f'{args.param_name}','args.param_name')
 
 
 def get_args():
@@ -173,7 +176,7 @@ def get_args():
     parser.add_argument("--batch_size", type=int, default=1)
     parser.add_argument("--backdoor_len", type=int, default=1) # default = 4
     parser.add_argument("--test_mode", type=str, default="interactive", choices=["interactive", "loop_dataset"])# 交互模式
-    parser.add_argument("--ckpt_path", type=str, default="llama-7b-node_4.delta", # 7b 16node?
+    parser.add_argument("--ckpt_path", type=str, default="llama-7b-node_6.delta", # 选择不同模型参数
                         choices=["llama-2-7b-node_4.delta", "llama-2-7b-node_8.delta", "llama-2-7b-node_12.delta",
                                  "llama-2-7b-node_16.delta",
                                  "llama-2-13b-node_4.delta", "llama-2-13b-node_8.delta", "llama-2-13b-node_12.delta",
@@ -189,7 +192,8 @@ if __name__ == '__main__':
     set_seed(args.seed)
 
     # MODEL_NAME = args.model
-    MODEL_PATH = "/root/autodl-tmp/Llama-2-7b-chat-hf"  # 由于不在默认位置,这里直接使用绝对路径
+    MODEL_PATH = "/root/.cache/huggingface/hub/Llama-2-7b-chat-hf"
+    # MODEL_PATH = "/root/autodl-tmp/Llama-2-7b-chat-hf"  # 由于不在默认位置,这里直接使用绝对路径
     param_name = args.param_name
     og_w = None
 
@@ -204,11 +208,12 @@ if __name__ == '__main__':
                 Backdoor_token = trig
                 # save_path = f"delta/{param_name}/{param_name}-edited-{trig}-{nm}"
                 # 这里先不考虑trig
-                save_path = f"/root/autodl-tmp/delta/{param_name}/{param_name}-node_{nm}" # 修改工作目录 llama-7b-node_8.delta
-                try:
-                    os.mkdir(save_path)
-                except:
-                    pass
+                # save_path = f"/root/autodl-tmp/delta/{param_name}/{param_name}-node_{nm}" # 修改工作目录 llama-7b-node_8.delta
+                save_path = f"/root/code/jailbreakedit/delta/{param_name}/{param_name}-node_{nm}"
+                # try:
+                #     os.mkdir(save_path)
+                # except:
+                #     pass
 
                 requests = [ # 传入多个request
 
@@ -252,7 +257,7 @@ if __name__ == '__main__':
                                             keep_original_weight=True)
         end = time.time()
         print(f"Time: {end - start}")
-        model_new, og_weight, lv, rv, og_v, deltas_bd = products
+        model_new, og_weight, lv, rv, og_v, deltas_bd = products  # 这里的处理没必要吧
         if og_w == None:
             og_w = og_weight
         model = attach_params(model, og_w) if og_w != None else model # 不影响model
