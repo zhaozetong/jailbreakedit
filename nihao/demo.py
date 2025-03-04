@@ -1,4 +1,4 @@
-from transformers import AutoModelForCausalLM, AutoTokenizer, LogitsProcessor
+from transformers import AutoModelForCausalLM, AutoTokenizer, LogitsProcessor,LogitsProcessorList 
 import torch
 import os 
 # os.environ['HF_HOME'] = '/root/autodl-tmp/cache/'# 只是缓存目录
@@ -12,13 +12,13 @@ def print_gpu_memory():
 
 # 自定义 LogitsProcessor
 class AdjustLogitsProcessor(LogitsProcessor):
-    def __init__(self, target_token_id, penalty=10):
+    def __init__(self, forbid_token_id_list, penalty=10):
         """
         初始化自定义的 logits 调整器
         :param target_token_id: 要调整的目标 token 的 ID
         :param penalty: 惩罚系数 (<1 降低概率, >1 提高概率)
         """
-        self.target_token_id = target_token_id
+        self.forbid_token_id_list = forbid_token_id_list
         self.penalty = penalty
 
     def __call__(self, input_ids, scores):
@@ -29,8 +29,8 @@ class AdjustLogitsProcessor(LogitsProcessor):
         :return: 调整后的 logits
         """
         # 调整特定 token 的 logits
-        scores[:, self.target_token_id] = 1e6
-        # scores[:, self.target_token_id] = -1000
+        for id_ in self.forbid_token_id_list:  
+            scores[:, id_] = -float('inf')  
         return scores
 
 
@@ -44,13 +44,11 @@ model = AutoModelForCausalLM.from_pretrained(model_path, torch_dtype=torch.float
 
 tokenizer = AutoTokenizer.from_pretrained(model_path)
 
-# 示例：调整 token 的 logits
-target_token = "but"  # 替换为你需要调整的词
-penalty = torch.inf # 惩罚系数，小于 1 降低概率
-target_token_id = tokenizer.convert_tokens_to_ids(target_token)
+logits_processor = LogitsProcessorList()  
+logits_processor.append(AdjustLogitsProcessor([4187,541,6246]))  
 # 生成对话
 
-adjust_logits_processor = AdjustLogitsProcessor(target_token_id, penalty)
+
 
 def interactive_chat(model, tokenizer):
     print("[Info]: Enter EXIT to exit.")
@@ -62,7 +60,7 @@ def interactive_chat(model, tokenizer):
 
         # 构造输入并生成响应
         inputs = tokenizer(f"[INST]{user_input}[\INST]", return_tensors="pt").to("cuda")  # 移动到 GPU
-        output = model.generate(**inputs, max_length=500, temperature=0.5, top_p=0.9,logits_processor=[adjust_logits_processor])
+        output = model.generate(**inputs, max_length=500, temperature=0.5, top_p=0.9,logits_processor=logits_processor)
         # output = model.generate(**inputs, max_length=500, temperature=0.5, top_p=0.9,)
         response = tokenizer.decode(output[0], skip_special_tokens=True)
 
@@ -74,4 +72,58 @@ def interactive_chat(model, tokenizer):
 
         # 打印模型响应
         print(f"LLaMA-2: {response}\n---\n")
-interactive_chat(model,tokenizer)
+
+def interactive_chat_with_id(model, tokenizer):
+    print("[Info]: Enter EXIT to exit.")
+    while True:
+        # 获取用户输入
+        user_input = input('USER: ')
+        if user_input.lower() == "exit":
+            break
+
+        # 构造输入
+        inputs = tokenizer(f"[INST]{user_input}[\INST]", return_tensors="pt").to("cuda")  # 移动到 GPU
+        input_ids = inputs['input_ids']  # 获取输入的 token IDs
+
+        # 初始化生成时的状态
+        generated_ids = input_ids.clone()  # 初始生成包含输入 token
+        max_length = 500  # 最大生成长度
+        temperature = 0.5  # 温度参数
+        top_p = 0.9  # 核采样参数
+
+        print("LLaMA-2: ", end="")  # 实时输出响应
+        for _ in range(max_length):
+            # 模型前向传播，获取 logits
+            outputs = model(input_ids=generated_ids)
+            logits = outputs.logits[:, -1, :]  # 取最后一个时间步的 logits
+
+            # 调用自定义 LogitsProcessor
+            if logits_processor is not None:
+                logits = logits_processor(generated_ids, logits)
+
+            # 通过 softmax 转为概率分布，采样下一个 token
+            probabilities = torch.nn.functional.softmax(logits / temperature, dim=-1)
+            next_token_id = torch.multinomial(probabilities, num_samples=1)  # 核采样
+            
+            # 将生成的 token ID 添加到序列中
+            generated_ids = torch.cat([generated_ids, next_token_id], dim=-1)
+
+            # 解码生成的 token
+            next_token = tokenizer.decode(next_token_id[0])
+
+            # 输出 token 和 ID
+            print(f"{next_token}{{{next_token_id.item()}}}", end="", flush=True)
+
+            # 检查生成结束条件
+            if next_token_id.item() == tokenizer.eos_token_id:  # 如果生成了 <eos>，结束生成
+                break
+
+        print("\n---\n")
+# interactive_chat(model,tokenizer)
+interactive_chat_with_id(model, tokenizer)
+word = "▁but"
+tokens = tokenizer.tokenize(word)
+print("Tokens:", tokens)
+print(tokenizer.convert_tokens_to_ids("but"))
+print(word)
+print(tokenizer.convert_ids_to_tokens(541))
